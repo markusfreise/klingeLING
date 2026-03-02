@@ -1,25 +1,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { ClockIcon } from '@heroicons/vue/24/outline'
-
-const auth = useAuthStore()
-const router = useRouter()
+import api from '@/api/client'
 
 const email = ref('')
-const password = ref('')
-const error = ref('')
 const loading = ref(false)
+const success = ref(false)
+const error = ref('')
 
-async function handleLogin() {
+async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
-    await auth.login(email.value, password.value)
-    router.push({ name: 'dashboard' })
+    await api.post('/auth/forgot-password', { email: email.value })
+    success.value = true
   } catch (e: any) {
-    error.value = e.response?.data?.message || 'Invalid credentials'
+    error.value = e.response?.data?.message || 'Something went wrong.'
   } finally {
     loading.value = false
   }
@@ -32,10 +28,19 @@ async function handleLogin() {
       <div class="login-header">
         <ClockIcon class="login-logo" />
         <h1 class="login-title">chingchong</h1>
-        <p class="login-subtitle">Sign in to your account</p>
+        <p class="login-subtitle">Reset your password</p>
       </div>
 
-      <form class="login-form" @submit.prevent="handleLogin">
+      <div v-if="success" class="login-form">
+        <div class="success-box">
+          Check your inbox — if that email is registered you'll receive a reset link shortly.
+        </div>
+        <router-link :to="{ name: 'login' }" class="btn-primary back-btn">
+          Back to sign in
+        </router-link>
+      </div>
+
+      <form v-else class="login-form" @submit.prevent="handleSubmit">
         <div v-if="error" class="login-error">{{ error }}</div>
 
         <div class="form-group">
@@ -51,26 +56,13 @@ async function handleLogin() {
           />
         </div>
 
-        <div class="form-group">
-          <div class="form-label-row">
-            <label class="form-label" for="password">Password</label>
-            <router-link :to="{ name: 'forgot-password' }" class="forgot-link">
-              Forgot password?
-            </router-link>
-          </div>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            class="form-input"
-            placeholder="Password"
-            required
-          />
-        </div>
-
         <button type="submit" class="btn-primary login-submit" :disabled="loading">
-          {{ loading ? 'Signing in...' : 'Sign in' }}
+          {{ loading ? 'Sending...' : 'Send reset link' }}
         </button>
+
+        <router-link :to="{ name: 'login' }" class="back-link">
+          ← Back to sign in
+        </router-link>
       </form>
     </div>
   </div>
@@ -110,19 +102,19 @@ async function handleLogin() {
   @apply rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-200;
 }
 
+.success-box {
+  @apply rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700 border border-green-200;
+}
+
 .login-submit {
   @apply w-full;
 }
 
-.form-label-row {
-  @apply flex items-center justify-between mb-1;
+.back-btn {
+  @apply w-full text-center;
 }
 
-.form-label-row .form-label {
-  @apply mb-0;
-}
-
-.forgot-link {
-  @apply text-xs text-blue-600 hover:text-blue-800;
+.back-link {
+  @apply block text-center text-sm text-gray-500 hover:text-gray-700;
 }
 </style>

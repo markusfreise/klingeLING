@@ -22,8 +22,6 @@ class ProjectResource extends JsonResource
             'is_active' => $this->is_active,
             'archived_at' => $this->archived_at,
             'client' => new ClientResource($this->whenLoaded('client')),
-            'tasks' => TaskResource::collection($this->whenLoaded('tasks')),
-            'tasks_count' => $this->whenCounted('tasks'),
             'total_tracked_hours' => $this->when(
                 $this->relationLoaded('timeEntries'),
                 fn () => round($this->timeEntries->sum('duration_seconds') / 3600, 2)

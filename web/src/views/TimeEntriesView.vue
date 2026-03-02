@@ -13,13 +13,13 @@ const showManualEntry = ref(false)
 const meta = ref({ current_page: 1, last_page: 1, total: 0 })
 
 // Filters
-const dateFrom = ref(getMonday())
+const dateFrom = ref(getLast30Days())
 const dateTo = ref(new Date().toISOString().split('T')[0]!)
 const filterProjectId = ref('')
 
-function getMonday(): string {
+function getLast30Days(): string {
   const d = new Date()
-  d.setDate(d.getDate() - d.getDay() + 1)
+  d.setDate(d.getDate() - 30)
   return d.toISOString().split('T')[0]!
 }
 

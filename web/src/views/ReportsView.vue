@@ -21,9 +21,53 @@ const utilizationData = ref<UtilizationRow[]>([])
 const projects = ref<Project[]>([])
 const loading = ref(false)
 
+function fmt(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function getFirstOfMonth(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+type DateRange = 'this_week' | 'this_month' | 'last_month' | 'this_quarter' | 'this_year'
+const activeRange = ref<DateRange | null>('this_month')
+const dateRangeOptions: { key: DateRange; label: string }[] = [
+  { key: 'this_week', label: 'This week' },
+  { key: 'this_month', label: 'This month' },
+  { key: 'last_month', label: 'Last month' },
+  { key: 'this_quarter', label: 'This quarter' },
+  { key: 'this_year', label: 'This year' },
+]
+
+function setRange(range: DateRange) {
+  activeRange.value = range
+  const today = new Date()
+  const y = today.getFullYear()
+  const m = today.getMonth()
+
+  if (range === 'this_week') {
+    const dow = today.getDay() // 0=Sun
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - ((dow + 6) % 7))
+    dateFrom.value = fmt(monday)
+    dateTo.value = fmt(today)
+  } else if (range === 'this_month') {
+    dateFrom.value = `${y}-${String(m + 1).padStart(2, '0')}-01`
+    dateTo.value = fmt(today)
+  } else if (range === 'last_month') {
+    const first = new Date(y, m - 1, 1)
+    const last = new Date(y, m, 0)
+    dateFrom.value = fmt(first)
+    dateTo.value = fmt(last)
+  } else if (range === 'this_quarter') {
+    const q = Math.floor(m / 3)
+    dateFrom.value = fmt(new Date(y, q * 3, 1))
+    dateTo.value = fmt(today)
+  } else if (range === 'this_year') {
+    dateFrom.value = `${y}-01-01`
+    dateTo.value = fmt(today)
+  }
 }
 
 async function fetchReport() {
@@ -64,6 +108,10 @@ async function exportCsv() {
 }
 
 watch([reportType, groupBy, dateFrom, dateTo, filterProjectId], fetchReport)
+
+function onDateInput() {
+  activeRange.value = null
+}
 
 onMounted(async () => {
   const { data } = await api.get('/projects', { params: { per_page: 100 } })
@@ -106,14 +154,25 @@ onMounted(async () => {
     </div>
 
     <!-- Filters -->
-    <div v-if="reportType !== 'budget'" class="filters-bar">
+    <div v-if="reportType !== 'budget'" class="filters-section">
+      <div class="date-ranges">
+        <button
+          v-for="r in dateRangeOptions"
+          :key="r.key"
+          :class="activeRange === r.key ? 'range-btn-active' : 'range-btn'"
+          @click="setRange(r.key)"
+        >
+          {{ r.label }}
+        </button>
+      </div>
+      <div class="filters-bar">
       <div class="form-group">
         <label class="form-label">From</label>
-        <input v-model="dateFrom" type="date" class="form-input" />
+        <input v-model="dateFrom" type="date" class="form-input" @change="onDateInput" />
       </div>
       <div class="form-group">
         <label class="form-label">To</label>
-        <input v-model="dateTo" type="date" class="form-input" />
+        <input v-model="dateTo" type="date" class="form-input" @change="onDateInput" />
       </div>
       <div v-if="reportType === 'summary'" class="form-group">
         <label class="form-label">Group by</label>
@@ -132,6 +191,7 @@ onMounted(async () => {
           <option value="">All</option>
           <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
+      </div>
       </div>
     </div>
 
@@ -305,8 +365,24 @@ onMounted(async () => {
   @apply px-4 py-2 rounded-md text-sm font-medium bg-white text-gray-900 shadow-sm;
 }
 
+.filters-section {
+  @apply mb-6 space-y-3;
+}
+
+.date-ranges {
+  @apply flex flex-wrap gap-2;
+}
+
+.range-btn {
+  @apply px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition-colors;
+}
+
+.range-btn-active {
+  @apply px-3 py-1.5 rounded-md text-sm font-medium text-blue-700 border border-blue-300 bg-blue-50;
+}
+
 .filters-bar {
-  @apply grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6;
+  @apply grid grid-cols-2 sm:grid-cols-4 gap-4;
 }
 
 .totals-bar {

@@ -16,8 +16,7 @@ class ProjectController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Project::query()
-            ->with('client')
-            ->withCount('tasks');
+            ->with('client');
 
         if ($request->has('filter.client_id')) {
             $query->where('client_id', $request->input('filter.client_id'));
@@ -55,8 +54,7 @@ class ProjectController extends Controller
 
     public function show(Project $project): JsonResponse
     {
-        $project->load(['client', 'tasks' => fn ($q) => $q->where('is_active', true), 'timeEntries']);
-        $project->loadCount('tasks');
+        $project->load(['client', 'timeEntries']);
 
         return response()->json([
             'data' => new ProjectResource($project),

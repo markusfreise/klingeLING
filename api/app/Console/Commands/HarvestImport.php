@@ -22,8 +22,8 @@ class HarvestImport extends Command
 
     protected $description = 'Import users, clients, projects, tasks, and time entries from Harvest';
 
-    private string $token;
-    private string $accountId;
+    private ?string $token;
+    private ?string $accountId;
     private array $userMap = [];    // harvest_id -> local User
     private array $clientMap = [];  // harvest_id -> local Client
     private array $projectMap = []; // harvest_id -> local Project
@@ -85,7 +85,7 @@ class HarvestImport extends Command
                     'name' => $hu['first_name'] . ' ' . $hu['last_name'],
                     'email' => $hu['email'],
                     'password' => Hash::make(Str::random(32)),
-                    'role' => $hu['is_admin'] ? 'admin' : 'member',
+                    'role' => in_array('administrator', $hu['access_roles'] ?? []) ? 'admin' : 'member',
                     'is_active' => true,
                 ]
             );
@@ -101,14 +101,16 @@ class HarvestImport extends Command
         $clients = $this->fetchAll('/clients', 'clients');
 
         foreach ($clients as $hc) {
-            $client = Client::updateOrCreate(
-                ['harvest_id' => (string) $hc['id']],
-                [
-                    'name' => $hc['name'],
-                    'slug' => Str::slug($hc['name']),
-                    'is_active' => $hc['is_active'],
-                ]
-            );
+            $slug = Str::slug($hc['name']);
+            $client = Client::where('harvest_id', (string) $hc['id'])->first()
+                ?? Client::where('slug', $slug)->first()
+                ?? new Client();
+            $client->fill([
+                'harvest_id' => (string) $hc['id'],
+                'name' => $hc['name'],
+                'slug' => $slug,
+                'is_active' => $hc['is_active'],
+            ])->save();
             $this->clientMap[(string) $hc['id']] = $client;
         }
 
@@ -126,19 +128,21 @@ class HarvestImport extends Command
                 continue;
             }
 
-            $project = Project::updateOrCreate(
-                ['harvest_id' => (string) $hp['id']],
-                [
-                    'client_id' => $client->id,
-                    'name' => $hp['name'],
-                    'slug' => Str::slug($hp['name']),
-                    'is_billable' => $hp['is_billable'],
-                    'is_active' => $hp['is_active'],
-                    'budget_hours' => $hp['budget'] ?? null,
-                    'hourly_rate' => $hp['hourly_rate'] ?? null,
-                    'color' => $this->randomColor(),
-                ]
-            );
+            $slug = Str::slug($hp['name']);
+            $project = Project::where('harvest_id', (string) $hp['id'])->first()
+                ?? Project::where('client_id', $client->id)->where('slug', $slug)->first()
+                ?? new Project();
+            $project->fill([
+                'harvest_id' => (string) $hp['id'],
+                'client_id' => $client->id,
+                'name' => $hp['name'],
+                'slug' => $slug,
+                'is_billable' => $hp['is_billable'],
+                'is_active' => $hp['is_active'],
+                'budget_hours' => $hp['budget'] ?? null,
+                'hourly_rate' => $hp['hourly_rate'] ?? null,
+                'color' => $project->color ?? $this->randomColor(),
+            ])->save();
             $this->projectMap[(string) $hp['id']] = $project;
         }
 
